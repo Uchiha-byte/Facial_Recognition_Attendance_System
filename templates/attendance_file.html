@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ filename }} - Attendance Details</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-file-csv"></i> {{ filename }}</h1>
+            <div class="header-actions">
+                <a href="{{ url_for('download_attendance', filename=filename) }}" class="button primary">
+                    <i class="fas fa-download"></i>
+                    Download CSV
+                </a>
+                <form method="POST" action="{{ url_for('delete_attendance', filename=filename) }}" 
+                      onsubmit="return confirm('Are you sure you want to delete all attendance records for {{ filename }}? This action cannot be undone.')"
+                      class="delete-form">
+                    <button type="submit" class="button danger">
+                        <i class="fas fa-trash"></i>
+                        Delete Records
+                    </button>
+                </form>
+                <a href="{{ url_for('view_attendance') }}" class="button primary">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Attendance
+                </a>
+                <a href="{{ url_for('home') }}" class="button primary">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="attendance-details">
+            <div class="attendance-summary">
+                <h2><i class="fas fa-chart-bar"></i> Attendance Summary</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <span class="stat-number">{{ records|length }}</span>
+                        <span class="stat-label">Total Present</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">{{ filename.replace('Attendance_', '').replace('.csv', '') }}</span>
+                        <span class="stat-label">Date</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if records %}
+                <div class="attendance-table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                {% for header in headers %}
+                                    <th>{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                                <tr>
+                                    {% for field in record %}
+                                        <td>{{ field }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No Attendance Records</h3>
+                    <p>No one has marked attendance for this date.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

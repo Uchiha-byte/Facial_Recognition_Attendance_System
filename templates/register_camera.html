@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Student - Camera</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-camera"></i> Face Registration</h1>
+            <div class="header-actions">
+                <button id="stopCamera" class="button danger">
+                    <i class="fas fa-stop"></i>
+                    Stop Camera
+                </button>
+                <a href="{{ url_for('home') }}" class="button primary">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </div>
+        </header>
+
+        <div class="camera-section">
+            <div class="camera-container">
+                <div class="camera-feed">
+                    <img id="cameraFrame" src="" alt="Camera Feed" style="width: 100%; max-width: 640px; height: auto; border-radius: 10px;">
+                </div>
+                <div class="camera-overlay">
+                    <div class="registration-info">
+                        <h3><i class="fas fa-user"></i> {{ name }}</h3>
+                        <p><i class="fas fa-id-card"></i> ID: {{ user_id }}</p>
+                    </div>
+                    <div class="progress-info">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <p id="progressText">Faces Collected: 0/50</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h3><i class="fas fa-info-circle"></i> Instructions</h3>
+                <ul>
+                    <li>Look directly at the camera with a neutral expression</li>
+                    <li>Keep your face centered and well-lit</li>
+                    <li>Ensure your face is clearly visible (not too close/far)</li>
+                    <li>The system will automatically collect 50 high-quality face samples</li>
+                    <li><strong>Color Guide:</strong> Red = Starting, Yellow = Half done, Green = Complete</li>
+                    <li>Wait for the process to complete automatically</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="status-message" id="statusMessage" style="display: none;">
+            <i class="fas fa-check-circle"></i>
+            <span id="statusText"></span>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const cameraFrame = document.getElementById('cameraFrame');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const statusMessage = document.getElementById('statusMessage');
+        const statusText = document.getElementById('statusText');
+        const stopCameraBtn = document.getElementById('stopCamera');
+
+        // Handle camera frame updates
+        socket.on('camera_frame', function(data) {
+            if (data.mode === 'register') {
+                // Convert hex string back to image
+                const frameBytes = new Uint8Array(data.frame.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+                const blob = new Blob([frameBytes], { type: 'image/jpeg' });
+                const imageUrl = URL.createObjectURL(blob);
+                
+                cameraFrame.src = imageUrl;
+                
+                // Update progress
+                const progress = (data.faces_collected / 50) * 100;
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `Faces Collected: ${data.faces_collected}/50`;
+                
+                // Update progress bar color based on completion
+                if (data.faces_collected >= 50) {
+                    progressFill.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+                } else if (data.faces_collected >= 25) {
+                    progressFill.style.background = 'linear-gradient(90deg, #FF9800, #FFC107)';
+                } else {
+                    progressFill.style.background = 'linear-gradient(90deg, #2196F3, #03A9F4)';
+                }
+            }
+        });
+
+        // Handle registration completion
+        socket.on('registration_complete', function(data) {
+            if (data.success) {
+                statusText.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                statusMessage.className = 'status-message success';
+                statusMessage.style.display = 'block';
+                
+                // Redirect to home after 3 seconds
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('home') }}";
+                }, 3000);
+            } else {
+                statusText.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.message;
+                statusMessage.className = 'status-message error';
+                statusMessage.style.display = 'block';
+            }
+        });
+
+        // Stop camera button
+        stopCameraBtn.addEventListener('click', function() {
+            socket.emit('stop_camera');
+            window.location.href = "{{ url_for('home') }}";
+        });
+
+        // Show loading on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('loading').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 1000);
+        });
+    </script>
+
+    <style>
+        .camera-section {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .camera-container {
+            position: relative;
+            display: inline-block;
+            margin: 2rem 0;
+        }
+
+        .camera-feed {
+            position: relative;
+            border: 3px solid var(--primary);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+
+        .registration-info {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .registration-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: white;
+        }
+
+        .registration-info p {
+            margin: 0;
+            color: white;
+        }
+
+        .progress-info {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .instructions {
+            max-width: 600px;
+            margin: 2rem auto;
+            text-align: left;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .instructions li:last-child {
+            border-bottom: none;
+        }
+
+        .instructions li:before {
+            content: "✓";
+            color: var(--primary);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</body>
+</html>

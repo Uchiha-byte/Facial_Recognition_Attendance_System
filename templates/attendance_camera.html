@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Take Attendance - Camera</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-camera"></i> Take Attendance</h1>
+            <div class="header-actions">
+                <button id="stopCamera" class="button danger">
+                    <i class="fas fa-stop"></i>
+                    Stop Camera
+                </button>
+                <a href="{{ url_for('home') }}" class="button primary">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </div>
+        </header>
+
+        <div class="camera-section">
+            <div class="camera-container">
+                <div class="camera-feed">
+                    <img id="cameraFrame" src="" alt="Camera Feed" style="width: 100%; max-width: 640px; height: auto; border-radius: 10px;">
+                </div>
+                <div class="camera-overlay">
+                    <div class="recognition-info" id="recognitionInfo" style="display: none;">
+                        <h3 id="personName"><i class="fas fa-user"></i> Person Detected</h3>
+                        <p id="personId"><i class="fas fa-id-card"></i> ID: Loading...</p>
+                        <div class="auto-capture-status" id="autoCaptureStatus">
+                            <i class="fas fa-magic"></i>
+                            <span>Auto-capture enabled</span>
+                        </div>
+                    </div>
+                    <div class="no-face-message" id="noFaceMessage">
+                        <i class="fas fa-user-slash"></i>
+                        <p>No face detected. Please position yourself in front of the camera.</p>
+                        <div class="auto-capture-info">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Attendance will be captured automatically when face is recognized</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h3><i class="fas fa-info-circle"></i> Instructions</h3>
+                <ul>
+                    <li>Position your face directly in front of the camera</li>
+                    <li>Ensure good lighting and clear visibility</li>
+                    <li>Wait for face recognition with high confidence (≥0.8)</li>
+                    <li>Attendance will be captured automatically when confidence is high</li>
+                    <li>Each person can only mark attendance once per day</li>
+                    <li><strong>Color Guide:</strong> Green = High confidence, Yellow = Medium confidence, Red = Cooldown, Gray = Unknown/Small face</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="status-message" id="statusMessage" style="display: none;">
+            <i class="fas fa-check-circle"></i>
+            <span id="statusText"></span>
+        </div>
+
+        <div class="loading-status" id="loadingStatus" style="display: none;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">
+                <h3 id="loadingTitle">Loading...</h3>
+                <p id="loadingMessage">Please wait while the system initializes</p>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const cameraFrame = document.getElementById('cameraFrame');
+        const recognitionInfo = document.getElementById('recognitionInfo');
+        const noFaceMessage = document.getElementById('noFaceMessage');
+        const personName = document.getElementById('personName');
+        const personId = document.getElementById('personId');
+        const statusMessage = document.getElementById('statusMessage');
+        const statusText = document.getElementById('statusText');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const loadingStatus = document.getElementById('loadingStatus');
+        const loadingTitle = document.getElementById('loadingTitle');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        let currentAttendanceData = null;
+
+        // Handle camera frame updates
+        socket.on('camera_frame', function(data) {
+            if (data.mode === 'attendance') {
+                // Convert hex string back to image
+                const frameBytes = new Uint8Array(data.frame.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+                const blob = new Blob([frameBytes], { type: 'image/jpeg' });
+                const imageUrl = URL.createObjectURL(blob);
+                
+                cameraFrame.src = imageUrl;
+                
+                // Update recognition info
+                if (data.attendance_data) {
+                    currentAttendanceData = data.attendance_data;
+                    const [id, name, timestamp, confidence] = data.attendance_data;
+                    
+                    personName.innerHTML = `<i class="fas fa-user"></i> ${name}`;
+                    personId.innerHTML = `<i class="fas fa-id-card"></i> ID: ${id} (Confidence: ${confidence})`;
+                    
+                    recognitionInfo.style.display = 'block';
+                    noFaceMessage.style.display = 'none';
+                    
+                    // Update auto-capture status based on confidence
+                    const autoCaptureStatus = document.getElementById('autoCaptureStatus');
+                    const confValue = parseFloat(confidence);
+                    
+                    if (confValue >= 0.8) {
+                        autoCaptureStatus.innerHTML = '<i class="fas fa-magic"></i> <span>High confidence - Ready to mark attendance</span>';
+                        autoCaptureStatus.style.background = 'rgba(0, 255, 0, 0.8)';
+                    } else if (confValue >= 0.6) {
+                        autoCaptureStatus.innerHTML = '<i class="fas fa-magic"></i> <span>Medium confidence - Position better for accuracy</span>';
+                        autoCaptureStatus.style.background = 'rgba(255, 255, 0, 0.8)';
+                    } else {
+                        autoCaptureStatus.innerHTML = '<i class="fas fa-magic"></i> <span>Low confidence - Move closer to camera</span>';
+                        autoCaptureStatus.style.background = 'rgba(255, 165, 0, 0.8)';
+                    }
+                } else {
+                    recognitionInfo.style.display = 'none';
+                    noFaceMessage.style.display = 'block';
+                    currentAttendanceData = null;
+                    
+                    // Reset auto-capture status
+                    const autoCaptureStatus = document.getElementById('autoCaptureStatus');
+                    autoCaptureStatus.innerHTML = '<i class="fas fa-magic"></i> <span>Auto-capture enabled</span>';
+                    autoCaptureStatus.style.background = 'rgba(0, 0, 0, 0.7)';
+                }
+            }
+        });
+
+        // Handle loading status updates
+        socket.on('loading_status', function(data) {
+            if (data.loading) {
+                loadingTitle.textContent = 'Loading Recognition System...';
+                loadingMessage.textContent = data.message;
+                loadingStatus.style.display = 'flex';
+            } else if (data.error) {
+                loadingTitle.textContent = 'Error';
+                loadingMessage.textContent = data.error;
+                loadingStatus.style.display = 'flex';
+                loadingStatus.className = 'loading-status error';
+            } else {
+                loadingStatus.style.display = 'none';
+                loadingStatus.className = 'loading-status';
+            }
+        });
+
+        // Handle attendance result
+        socket.on('attendance_result', function(data) {
+            if (data.success) {
+                statusText.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                statusMessage.className = 'status-message success';
+                statusMessage.style.display = 'block';
+                
+                // Hide message after 3 seconds for auto-capture, 5 seconds for manual
+                const hideDelay = data.auto_capture ? 3000 : 5000;
+                setTimeout(() => {
+                    statusMessage.style.display = 'none';
+                }, hideDelay);
+            } else {
+                statusText.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.message;
+                statusMessage.className = 'status-message error';
+                statusMessage.style.display = 'block';
+                
+                // Hide message after 5 seconds
+                setTimeout(() => {
+                    statusMessage.style.display = 'none';
+                }, 5000);
+            }
+        });
+
+        // Stop camera button
+        stopCameraBtn.addEventListener('click', function() {
+            socket.emit('stop_camera');
+            window.location.href = "{{ url_for('home') }}";
+        });
+
+        // Show loading on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('loading').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 1000);
+        });
+    </script>
+
+    <style>
+        .camera-section {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .camera-container {
+            position: relative;
+            display: inline-block;
+            margin: 1rem 0;
+            max-width: 100%;
+        }
+
+        .camera-feed {
+            position: relative;
+            border: 3px solid var(--primary);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .recognition-info {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .recognition-info h3 {
+            margin: 0 0 0.3rem 0;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .recognition-info p {
+            margin: 0;
+            color: white;
+            font-size: 0.85rem;
+        }
+
+        .no-face-message {
+            background: rgba(255, 0, 0, 0.8);
+            padding: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .no-face-message i {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+            display: block;
+        }
+
+        .no-face-message p {
+            margin: 0;
+            color: white;
+            font-size: 0.85rem;
+        }
+
+        .auto-capture-status {
+            background: rgba(0, 255, 0, 0.8);
+            padding: 0.4rem;
+            border-radius: 5px;
+            margin-top: 0.3rem;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .auto-capture-status i {
+            margin-right: 0.3rem;
+        }
+
+        .auto-capture-info {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.4rem;
+            border-radius: 5px;
+            margin-top: 0.3rem;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+
+        .auto-capture-info i {
+            margin-right: 0.3rem;
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .instructions {
+            max-width: 600px;
+            margin: 2rem auto;
+            text-align: left;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .instructions li:last-child {
+            border-bottom: none;
+        }
+
+        .instructions li:before {
+            content: "✓";
+            color: var(--primary);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        #takeAttendanceBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading-status {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .loading-status.error {
+            background: rgba(248, 215, 218, 0.95);
+        }
+
+        .loading-status .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 2rem;
+        }
+
+        .loading-text h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .loading-text p {
+            color: var(--text);
+            font-size: 1.1rem;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        .loading-status.error .loading-text h3 {
+            color: var(--danger);
+        }
+
+        .loading-status.error .loading-spinner {
+            border-top-color: var(--danger);
+        }
+
+        /* Responsive adjustments for camera view */
+        @media (max-width: 768px) {
+            .camera-container {
+                margin: 0.5rem 0;
+            }
+            
+            .camera-overlay {
+                top: 5px;
+                left: 5px;
+                right: 5px;
+            }
+            
+            .recognition-info,
+            .no-face-message {
+                padding: 0.6rem;
+                font-size: 0.8rem;
+            }
+            
+            .recognition-info h3 {
+                font-size: 0.9rem;
+            }
+            
+            .recognition-info p {
+                font-size: 0.75rem;
+            }
+            
+            .auto-capture-status,
+            .auto-capture-info {
+                padding: 0.3rem;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .camera-overlay {
+                top: 3px;
+                left: 3px;
+                right: 3px;
+            }
+            
+            .recognition-info,
+            .no-face-message {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            
+            .recognition-info h3 {
+                font-size: 0.85rem;
+            }
+            
+            .recognition-info p {
+                font-size: 0.7rem;
+            }
+            
+            .auto-capture-status,
+            .auto-capture-info {
+                padding: 0.25rem;
+                font-size: 0.65rem;
+            }
+        }
+    </style>
+</body>
+</html>

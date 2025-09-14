@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facial Recognition Attendance System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-user-check"></i> Facial Recognition Attendance System</h1>
+        </header>
+
+        {% if error %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-users"></i>
+                <h3>{{ students_count }}</h3>
+                <p>Registered Students</p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-calendar-check"></i>
+                <h3>Today</h3>
+                <p>Attendance</p>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <a href="{{ url_for('register') }}" class="button primary">
+                <i class="fas fa-user-plus"></i>
+                Register Student
+            </a>
+            
+            <a href="{{ url_for('take_attendance') }}" class="button primary">
+                <i class="fas fa-camera"></i>
+                Take Attendance
+            </a>
+            
+            <a href="{{ url_for('view_attendance') }}" class="button primary">
+                <i class="fas fa-list"></i>
+                View Attendance
+            </a>
+            
+            <a href="{{ url_for('list_students') }}" class="button primary">
+                <i class="fas fa-users"></i>
+                Manage Students
+            </a>
+        </div>
+
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> How to Use</h3>
+            <div class="instruction-steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <div class="step-content">
+                        <h4>Register Students</h4>
+                        <p>Add new students to the system by capturing their facial data</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <div class="step-content">
+                        <h4>Take Attendance</h4>
+                        <p>Use the camera to automatically recognize and mark attendance</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <div class="step-content">
+                        <h4>View Reports</h4>
+                        <p>Check attendance records and generate reports</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

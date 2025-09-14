@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Attendance - Facial Recognition Attendance</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-list"></i> Attendance Records</h1>
+            <a href="{{ url_for('home') }}" class="button primary">
+                <i class="fas fa-home"></i>
+                Back to Home
+            </a>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="attendance-section">
+            <h2><i class="fas fa-calendar-alt"></i> Available Attendance Files</h2>
+            
+            {% if files %}
+                <div class="file-list">
+                    {% for file in files %}
+                        <div class="file-item-container">
+                            <a href="{{ url_for('view_attendance_file', filename=file) }}" class="file-item">
+                                <i class="fas fa-file-csv"></i>
+                                <div>
+                                    <h3>{{ file }}</h3>
+                                    <p>Click to view attendance details</p>
+                                </div>
+                            </a>
+                            <div class="file-actions">
+                                <a href="{{ url_for('download_attendance', filename=file) }}" class="button primary small">
+                                    <i class="fas fa-download"></i>
+                                    Download
+                                </a>
+                                <form method="POST" action="{{ url_for('delete_attendance', filename=file) }}" 
+                                      onsubmit="return confirm('Are you sure you want to delete all attendance records for {{ file }}? This action cannot be undone.')"
+                                      class="delete-form">
+                                    <button type="submit" class="button danger small">
+                                        <i class="fas fa-trash"></i>
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No Attendance Records Found</h3>
+                    <p>No attendance has been taken yet. Start by taking attendance for today.</p>
+                    <a href="{{ url_for('take_attendance') }}" class="button primary">
+                        <i class="fas fa-camera"></i>
+                        Take Attendance
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

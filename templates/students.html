@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Students - Facial Recognition Attendance</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-users"></i> Manage Students</h1>
+            <div class="header-actions">
+                <a href="{{ url_for('register') }}" class="button primary">
+                    <i class="fas fa-user-plus"></i>
+                    Add New Student
+                </a>
+                <a href="{{ url_for('home') }}" class="button primary">
+                    <i class="fas fa-home"></i>
+                    Back to Home
+                </a>
+            </div>
+        </header>
+
+        <div class="students-section">
+            <h2><i class="fas fa-list"></i> Registered Students</h2>
+            
+            {% if students %}
+                <div class="students-grid">
+                    {% for student in students %}
+                        <div class="student-card">
+                            <div class="student-info">
+                                <div class="student-avatar">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="student-details">
+                                    <h3>{{ student.name }}</h3>
+                                    <p><i class="fas fa-id-card"></i> ID: {{ student.id }}</p>
+                                </div>
+                            </div>
+                            <div class="student-actions">
+                                <form method="POST" action="{{ url_for('remove_student') }}" 
+                                      onsubmit="return confirm('Are you sure you want to remove this student? This action cannot be undone.')">
+                                    <input type="hidden" name="id" value="{{ student.id }}">
+                                    <button type="submit" class="button danger">
+                                        <i class="fas fa-trash"></i>
+                                        Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-users-slash"></i>
+                    <h3>No Students Registered</h3>
+                    <p>No students have been registered yet. Start by adding a new student.</p>
+                    <a href="{{ url_for('register') }}" class="button primary">
+                        <i class="fas fa-user-plus"></i>
+                        Register First Student
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>
