@@ -79,10 +79,11 @@ python app.py
 4️⃣ Open the web app in your browser
 
 http://localhost:5000
-```bash
 
-🧑‍🎓 How to Use
-➕ Adding Students
+---
+
+##🧑‍🎓 How to Use
+###➕ Adding Students
 
 - Click Register Student
 - Enter the student's name and ID
