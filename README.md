@@ -79,3 +79,44 @@ python app.py
 4️⃣ Open the web app in your browser
 
 http://localhost:5000
+
+🧑‍🎓 How to Use
+➕ Adding Students
+
+Click Register Student
+
+Enter the student's name and ID
+
+Click Start Face Capture
+
+Look into the camera until the face data is collected
+
+The student is saved automatically!
+
+✅ Taking Attendance
+
+Click Take Attendance
+
+Look at the camera
+
+The system recognizes your face and marks attendance
+
+Attendance can be recorded only once per day per student
+
+📊 Viewing Records
+
+Click View Attendance to see attendance logs
+
+Select any date to view attendance details
+
+Use Manage Students to add or delete students
+
+📂 Project Structure
+facial-recognition-attendance/
+├── app.py              # Main Flask application
+├── models.py           # Database models and schema
+├── camera_service.py   # Face recognition logic
+├── requirements.txt    # Python dependencies
+├── templates/          # HTML templates
+├── static/             # CSS and JavaScript files
+└── README.md           # Project documentation
